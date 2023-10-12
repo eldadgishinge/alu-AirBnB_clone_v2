@@ -1,26 +1,88 @@
-#!/usr/bin/python3
-# script to delete out-of-date archives.
-import os
-from fabric.api import *
+# AirBnB clone web server setup and configuration
 
-env.hosts = ["18.212.210.50", "54.89.116.191"]
+# SCRIPT INCOMPLETE. NEEDS SOME MORE THINKING---
+$nginx_conf = "server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    add_header X-Served-By ${hostname};
+    root   /var/www/html;
+    index  index.html index.htm;
+    location /hbnb_static {
+        alias /data/web_static/current;
+        index index.html index.htm;
+    }
+    location /redirect_me {
+        return 301 http://linktr.ee/firdaus_h_salim/;
+    }
+    error_page 404 /404.html;
+    location /404 {
+      root /var/www/html;
+      internal;
+    }
+}"
 
+package { 'nginx':
+  ensure   => 'present',
+  provider => 'apt'
+}
 
-def do_clean(number=0):
-    """
-        Function deletes out-of-date archives
-        Args:
-        number (int): number of archives to keep
-    """
-    number = 1 if int(number) == 0 else int(number)
+-> file { '/data':
+  ensure  => 'directory'
+}
 
-    archives = sorted(os.listdir("versions"))
-    [archives.pop() for i in range(number)]
-    with lcd("versions"):
-        [local("rm ./{}".format(a)) for a in archives]
+-> file { '/data/web_static':
+  ensure => 'directory'
+}
 
-    with cd("/data/web_static/releases"):
-        archives = run("ls -tr").split()
-        archives = [a for a in archives if "web_static_" in a]
-        [archives.pop() for i in range(number)]
-        [run("rm -rf ./{}".format(a)) for a in archives]
+-> file { '/data/web_static/releases':
+  ensure => 'directory'
+}
+
+-> file { '/data/web_static/releases/test':
+  ensure => 'directory'
+}
+
+-> file { '/data/web_static/shared':
+  ensure => 'directory'
+}
+
+-> file { '/data/web_static/releases/test/index.html':
+  ensure  => 'present',
+  content => "this webpage is found in data/web_static/releases/test/index.htm \n"
+}
+
+-> file { '/data/web_static/current':
+  ensure => 'link',
+  target => '/data/web_static/releases/test'
+}
+
+-> exec { 'chown -R ubuntu:ubuntu /data/':
+  path => '/usr/bin/:/usr/local/bin/:/bin/'
+}
+
+file { '/var/www':
+  ensure => 'directory'
+}
+
+-> file { '/var/www/html':
+  ensure => 'directory'
+}
+
+-> file { '/var/www/html/index.html':
+  ensure  => 'present',
+  content => "This is my first upload  in /var/www/index.html***\n"
+}
+
+-> file { '/var/www/html/404.html':
+  ensure  => 'present',
+  content => "Ceci n'est pas une page - Error page\n"
+}
+
+-> file { '/etc/nginx/sites-available/default':
+  ensure  => 'present',
+  content => $nginx_conf
+}
+
+-> exec { 'nginx restart':
+  path => '/etc/init.d/'
+}
